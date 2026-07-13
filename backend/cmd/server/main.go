@@ -1,0 +1,56 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"bookshelf/internal/auth"
+	"bookshelf/internal/config"
+	"bookshelf/internal/database"
+	"bookshelf/internal/server"
+	"bookshelf/internal/storage"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
+	store, err := storage.New(cfg.DataDir)
+	if err != nil {
+		slog.Error("initialize storage", "error", err)
+		os.Exit(1)
+	}
+	db, err := database.Open(store.Root(), cfg.SQLiteBusyTimeoutMS)
+	if err != nil {
+		slog.Error("initialize database", "error", err)
+		os.Exit(1)
+	}
+	authService := auth.New(db, cfg.SessionTTL)
+	if err := authService.BootstrapAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		slog.Error("bootstrap administrator", "error", err)
+		os.Exit(1)
+	}
+	httpServer := &http.Server{Addr: ":" + cfg.Port, Handler: server.New(cfg, db, store, authService), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	go func() {
+		slog.Info("bookshelf server started", "port", cfg.Port, "environment", cfg.Environment)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server stopped unexpectedly", "error", err)
+			os.Exit(1)
+		}
+	}()
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(ctx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
+	}
+}

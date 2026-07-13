@@ -1,0 +1,1 @@
+import{vi}from'vitest';class ResizeObserver{observe(){}unobserve(){}disconnect(){}};Object.defineProperty(globalThis,'ResizeObserver',{value:ResizeObserver});Object.defineProperty(window,'matchMedia',{value:vi.fn().mockImplementation(()=>({matches:false,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn()}))});
