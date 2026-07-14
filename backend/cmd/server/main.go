@@ -12,7 +12,9 @@ import (
 	"bookshelf/internal/auth"
 	"bookshelf/internal/config"
 	"bookshelf/internal/database"
+	"bookshelf/internal/proxy"
 	"bookshelf/internal/server"
+	"bookshelf/internal/settings"
 	"bookshelf/internal/storage"
 )
 
@@ -32,12 +34,18 @@ func main() {
 		slog.Error("initialize database", "error", err)
 		os.Exit(1)
 	}
-	authService := auth.New(db, cfg.SessionTTL)
-	if err := authService.BootstrapAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
-		slog.Error("bootstrap administrator", "error", err)
+	resolver, err := proxy.New(cfg.TrustedProxies)
+	if err != nil {
+		slog.Error("invalid trusted proxy configuration", "error", err)
 		os.Exit(1)
 	}
-	httpServer := &http.Server{Addr: ":" + cfg.Port, Handler: server.New(cfg, db, store, authService), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	settingsService := settings.New(db, settings.Defaults{Enabled: cfg.OPDSEnabled, AccessMode: cfg.OPDSAccessMode, Username: cfg.OPDSUsername, Password: cfg.OPDSPassword, PublicBaseURL: cfg.PublicBaseURL})
+	if err := settingsService.EnsureExistingInstall(); err != nil {
+		slog.Error("initialize system settings", "error", err)
+		os.Exit(1)
+	}
+	authService := auth.New(db, cfg.SessionTTL)
+	httpServer := &http.Server{Addr: ":" + cfg.Port, Handler: server.New(cfg, db, store, authService, settingsService, resolver), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		slog.Info("bookshelf server started", "port", cfg.Port, "environment", cfg.Environment)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

@@ -66,11 +66,25 @@ func migrate(db *gorm.DB) error {
 		return err
 	}
 	if v3 == 0 {
-		return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.AutoMigrate(&BookFile{}); err != nil {
 				return err
 			}
 			return tx.Create(&schemaMigration{Version: 3, AppliedAt: time.Now().UTC()}).Error
+		}); err != nil {
+			return err
+		}
+	}
+	var v4 int64
+	if err := db.Model(&schemaMigration{}).Where("version = ?", 4).Count(&v4).Error; err != nil {
+		return err
+	}
+	if v4 == 0 {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.AutoMigrate(&SystemSetting{}); err != nil {
+				return err
+			}
+			return tx.Create(&schemaMigration{Version: 4, AppliedAt: time.Now().UTC()}).Error
 		})
 	}
 	return nil

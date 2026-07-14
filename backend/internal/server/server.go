@@ -13,18 +13,21 @@ import (
 	"bookshelf/internal/config"
 	appmw "bookshelf/internal/middleware"
 	"bookshelf/internal/opds"
+	"bookshelf/internal/proxy"
 	"bookshelf/internal/scanner"
+	"bookshelf/internal/settings"
 	"bookshelf/internal/storage"
 	appsystem "bookshelf/internal/system"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *auth.Service) *gin.Engine {
+func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *auth.Service, settingsService *settings.Service, resolver *proxy.Resolver) *gin.Engine {
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
+	_ = r.SetTrustedProxies(cfg.TrustedProxies)
 	r.Use(gin.Recovery(), appmw.SecurityHeaders(), func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
@@ -42,6 +45,11 @@ func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *au
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "database": "ok", "storage": "ok"})
 	})
+	backupService := backup.New(db, store, cfg.BackupRetentionDays)
+	scanService := scanner.New(db, store)
+	systemHandler := appsystem.New(db, store, backupService, scanService, settingsService, resolver)
+	r.GET("/api/v1/setup/status", systemHandler.SetupStatus)
+	r.POST("/api/v1/setup", systemHandler.Initialize)
 	h := auth.NewHandler(authService, cfg.Environment == "production", cfg.SessionTTL)
 	a := r.Group("/api/v1/auth")
 	a.POST("/login", appmw.LoginRateLimit(10, time.Minute), h.Login)
@@ -79,9 +87,6 @@ func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *au
 	api.POST("/tags", ch.CreateTag)
 	api.PUT("/tags/:id", ch.UpdateTag)
 	api.DELETE("/tags/:id", ch.DeleteTag)
-	backupService := backup.New(db, store, cfg.BackupRetentionDays)
-	scanService := scanner.New(db, store)
-	systemHandler := appsystem.New(db, store, backupService, scanService, cfg.PublicBaseURL+"/opds")
 	api.GET("/system/info", systemHandler.Info)
 	api.POST("/system/backups", systemHandler.Backup)
 	api.GET("/system/backups", systemHandler.Backups)
@@ -89,24 +94,25 @@ func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *au
 	api.POST("/system/scan", systemHandler.Scan)
 	api.GET("/system/scan/status", systemHandler.ScanStatus)
 	api.GET("/system/manifest", systemHandler.Manifest)
-	if cfg.OPDSEnabled {
-		oh := opds.New(db, bookService, cfg.PublicBaseURL, cfg.OPDSUsername, cfg.OPDSPassword)
-		catalog := r.Group("")
-		catalog.Use(oh.BasicAuth())
-		catalog.GET("/opds", oh.Root)
-		catalog.GET("/opds/recent", oh.Recent)
-		catalog.GET("/opds/all", oh.All)
-		catalog.GET("/opds/authors", oh.Authors)
-		catalog.GET("/opds/authors/:id", oh.AuthorBooks)
-		catalog.GET("/opds/tags", oh.Tags)
-		catalog.GET("/opds/tags/:id", oh.TagBooks)
-		catalog.GET("/opds/formats", oh.Formats)
-		catalog.GET("/opds/formats/:format", oh.FormatBooks)
-		catalog.GET("/opds/search", oh.Search)
-		catalog.GET("/opds/books/:id", oh.Book)
-		catalog.GET("/opds/books/:id/cover", oh.Cover)
-		catalog.GET("/opds/books/:id/files/:fileId", oh.Download)
-		catalog.GET("/opensearch.xml", oh.OpenSearch)
-	}
+	api.GET("/system/opds", systemHandler.OPDSSettings)
+	api.PUT("/system/opds", systemHandler.UpdateOPDSSettings)
+	api.POST("/system/opds/test", systemHandler.TestOPDS)
+	oh := opds.New(db, bookService, settingsService, resolver)
+	opdsCatalog := r.Group("")
+	opdsCatalog.Use(oh.BasicAuth())
+	opdsCatalog.GET("/opds", oh.Root)
+	opdsCatalog.GET("/opds/recent", oh.Recent)
+	opdsCatalog.GET("/opds/all", oh.All)
+	opdsCatalog.GET("/opds/authors", oh.Authors)
+	opdsCatalog.GET("/opds/authors/:id", oh.AuthorBooks)
+	opdsCatalog.GET("/opds/tags", oh.Tags)
+	opdsCatalog.GET("/opds/tags/:id", oh.TagBooks)
+	opdsCatalog.GET("/opds/formats", oh.Formats)
+	opdsCatalog.GET("/opds/formats/:format", oh.FormatBooks)
+	opdsCatalog.GET("/opds/search", oh.Search)
+	opdsCatalog.GET("/opds/books/:id", oh.Book)
+	opdsCatalog.GET("/opds/books/:id/cover", oh.Cover)
+	opdsCatalog.GET("/opds/books/:id/files/:fileId", oh.Download)
+	opdsCatalog.GET("/opensearch.xml", oh.OpenSearch)
 	return r
 }

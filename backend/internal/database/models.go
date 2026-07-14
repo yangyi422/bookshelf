@@ -18,6 +18,16 @@ type Session struct {
 	ExpiresAt time.Time `gorm:"index;not null"`
 	CreatedAt time.Time
 }
+type SystemSetting struct {
+	ID               uint      `gorm:"primaryKey" json:"-"`
+	OPDSEnabled      bool      `gorm:"not null" json:"opds_enabled"`
+	OPDSAccessMode   string    `gorm:"not null" json:"opds_access_mode"`
+	OPDSUsername     string    `gorm:"not null" json:"opds_username"`
+	OPDSPasswordHash string    `gorm:"not null" json:"-"`
+	PublicBaseURL    string    `gorm:"not null" json:"public_base_url"`
+	CreatedAt        time.Time `json:"-"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
 type Book struct {
 	ID            string     `gorm:"primaryKey" json:"id"`
 	Title         string     `gorm:"not null" json:"title"`

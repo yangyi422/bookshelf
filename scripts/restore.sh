@@ -3,8 +3,6 @@ set -eu
 
 ARCHIVE=${1:-}
 DATA_DIR=${DATA_DIR:-/opt/bookshelf/data}
-BOOKSHELF_UID=${BOOKSHELF_UID:-10001}
-BOOKSHELF_GID=${BOOKSHELF_GID:-10001}
 
 if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
   echo "usage: CONFIRM_RESTORE=yes $0 /path/to/bookshelf-YYYYMMDD-HHMMSS.tar.gz" >&2
@@ -69,7 +67,6 @@ if [ -d "$DATA_DIR" ]; then
   MOVED=yes
 fi
 mv "$STAGE" "$DATA_DIR"
-if [ "$(id -u)" = "0" ]; then chown -R "$BOOKSHELF_UID:$BOOKSHELF_GID" "$DATA_DIR"; fi
 SUCCESS=yes
 rm -rf "$OLD"
 echo "restore complete: $DATA_DIR"

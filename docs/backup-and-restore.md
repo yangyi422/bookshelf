@@ -18,11 +18,13 @@
 恢复必须停机执行。脚本会拒绝仍被进程占用的数据库，校验可用的 `.sha256` sidecar，拒绝绝对路径、`..`、符号链接和硬链接，解压到数据目录同一文件系统，执行 SQLite `quick_check`，备份当前数据后原子切换。
 
 ```bash
-docker compose --env-file .env -f deploy/docker-compose.yml down
+docker compose --env-file .env -f deploy/docker-compose.prod.yml down
 sudo DATA_DIR=/opt/bookshelf/data CONFIRM_RESTORE=yes \
   ./scripts/restore.sh /opt/bookshelf/data/backups/bookshelf-YYYYMMDD-HHMMSS.tar.gz
-docker compose --env-file .env -f deploy/docker-compose.yml up -d
+docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d
 ```
+
+恢复脚本不要求指定或手工修复 UID/GID。重新启动时，`storage-init` 会先把恢复后的数据目录所有权设置为后端镜像实际使用的 `bookshelf` 用户，然后主应用才会启动。
 
 注意：当备份文件位于当前数据目录内部时，停机前应先将 `.tar.gz` 和 `.sha256` 复制到数据目录外，再运行恢复。脚本会在数据目录同级生成 `data-pre-restore-*.tar.gz` 安全备份；确认恢复成功前不要删除它。
 

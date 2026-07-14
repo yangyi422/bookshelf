@@ -17,14 +17,21 @@ func TestProductionValidation(t *testing.T) {
 	}
 }
 
-func TestOPDSProductionRequiresHTTPS(t *testing.T) {
+func TestLegacyOPDSEnvironmentMapsAccessMode(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("SESSION_SECRET", "this-is-a-long-enough-session-secret-value")
 	t.Setenv("OPDS_ENABLED", "true")
-	t.Setenv("OPDS_USERNAME", "reader")
-	t.Setenv("OPDS_PASSWORD", "strong-reader-password")
-	t.Setenv("PUBLIC_BASE_URL", "http://books.example.com")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected HTTP OPDS base URL rejection")
+	t.Setenv("OPDS_ALLOW_INSECURE_HTTP", "true")
+	cfg, err := Load()
+	if err != nil || cfg.OPDSAccessMode != "http_and_https" {
+		t.Fatalf("mode = %q, error %v", cfg.OPDSAccessMode, err)
+	}
+}
+
+func TestOPDSAllowInsecureHTTPDefaultsFalse(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("OPDS_ENABLED", "false")
+	if cfg, err := Load(); err != nil || cfg.OPDSAllowInsecureHTTP {
+		t.Fatalf("expected disabled default, got %t, error %v", cfg.OPDSAllowInsecureHTTP, err)
 	}
 }

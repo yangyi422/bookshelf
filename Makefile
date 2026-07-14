@@ -1,4 +1,4 @@
-.PHONY: dev test build docker-build docker-up docker-down backup restore scan integration-test
+.PHONY: dev test build docker-build docker-up docker-down docker-config docker-verify prod-build prod-up prod-down prod-config backup restore scan integration-test
 
 dev:
 	cd backend && go run ./cmd/server
@@ -12,13 +12,31 @@ build:
 	cd frontend && npm run build
 
 docker-build:
-	docker compose -f deploy/docker-compose.yml build
+	docker compose --env-file .env -f deploy/docker-compose.dev.yml build
 
 docker-up:
-	docker compose -f deploy/docker-compose.yml up -d --build
+	docker compose --env-file .env -f deploy/docker-compose.dev.yml up -d --build
 
 docker-down:
-	docker compose -f deploy/docker-compose.yml down
+	docker compose --env-file .env -f deploy/docker-compose.dev.yml down
+
+docker-config:
+	docker compose --env-file .env -f deploy/docker-compose.dev.yml config
+
+docker-verify:
+	./scripts/verify-deployment.sh
+
+prod-build:
+	docker compose --env-file .env -f deploy/docker-compose.prod.yml build
+
+prod-up:
+	docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build
+
+prod-down:
+	docker compose --env-file .env -f deploy/docker-compose.prod.yml down
+
+prod-config:
+	docker compose --env-file .env -f deploy/docker-compose.prod.yml config
 
 backup:
 	./scripts/backup.sh

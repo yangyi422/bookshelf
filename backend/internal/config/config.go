@@ -13,27 +13,43 @@ import (
 type Config struct {
 	Environment, Port, DataDir, PublicBaseURL, AdminUsername, AdminPassword string
 	SessionSecret                                                           string
-	OPDSEnabled                                                             bool
-	OPDSUsername, OPDSPassword                                              string
+	OPDSEnabled, OPDSAllowInsecureHTTP                                      bool
+	OPDSUsername, OPDSPassword, OPDSAccessMode                              string
 	SessionTTL                                                              time.Duration
 	MaxUploadBytes                                                          int64
 	SQLiteBusyTimeoutMS                                                     int
 	BackupRetentionDays                                                     int
 	LogLevel                                                                string
+	TrustedProxies                                                          []string
 }
 
 func Load() (Config, error) {
 	c := Config{
 		Environment: env("APP_ENV", "development"), Port: env("APP_PORT", "8080"),
-		DataDir: env("DATA_DIR", "./data"), PublicBaseURL: env("PUBLIC_BASE_URL", "http://localhost:8080"),
+		DataDir: env("DATA_DIR", "./data"), PublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
 		AdminUsername: strings.TrimSpace(os.Getenv("ADMIN_USERNAME")), AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		SessionSecret: os.Getenv("SESSION_SECRET"), LogLevel: env("LOG_LEVEL", "info"),
 		OPDSUsername: strings.TrimSpace(os.Getenv("OPDS_USERNAME")), OPDSPassword: os.Getenv("OPDS_PASSWORD"),
+		TrustedProxies: splitCSV(env("TRUSTED_PROXIES", "127.0.0.1,::1")),
 	}
 	var err error
 	c.OPDSEnabled, err = strconv.ParseBool(env("OPDS_ENABLED", "true"))
 	if err != nil {
 		return c, errors.New("OPDS_ENABLED must be true or false")
+	}
+	c.OPDSAllowInsecureHTTP, err = strconv.ParseBool(env("OPDS_ALLOW_INSECURE_HTTP", "false"))
+	if err != nil {
+		return c, errors.New("OPDS_ALLOW_INSECURE_HTTP must be true or false")
+	}
+	c.OPDSAccessMode = strings.TrimSpace(os.Getenv("OPDS_ACCESS_MODE"))
+	if c.OPDSAccessMode == "" {
+		if !c.OPDSEnabled {
+			c.OPDSAccessMode = "disabled"
+		} else if c.OPDSAllowInsecureHTTP {
+			c.OPDSAccessMode = "http_and_https"
+		} else {
+			c.OPDSAccessMode = "https_only"
+		}
 	}
 	hours, err := positiveInt("SESSION_TTL_HOURS", 168)
 	if err != nil {
@@ -53,9 +69,11 @@ func Load() (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	publicURL, parseErr := url.ParseRequestURI(c.PublicBaseURL)
-	if parseErr != nil || publicURL.Host == "" || (publicURL.Scheme != "http" && publicURL.Scheme != "https") || (publicURL.Path != "" && publicURL.Path != "/") || publicURL.RawQuery != "" || publicURL.Fragment != "" {
-		return c, errors.New("PUBLIC_BASE_URL must be an absolute HTTP(S) URL")
+	if c.PublicBaseURL != "" {
+		publicURL, parseErr := url.ParseRequestURI(c.PublicBaseURL)
+		if parseErr != nil || publicURL.Host == "" || (publicURL.Scheme != "http" && publicURL.Scheme != "https") || (publicURL.Path != "" && publicURL.Path != "/") || publicURL.RawQuery != "" || publicURL.Fragment != "" {
+			return c, errors.New("PUBLIC_BASE_URL must be an absolute HTTP(S) URL")
+		}
 	}
 	if c.Environment == "production" {
 		if len(c.SessionSecret) < 32 {
@@ -64,18 +82,9 @@ func Load() (Config, error) {
 		if c.AdminUsername != "" && weakPassword(c.AdminPassword) {
 			return c, errors.New("ADMIN_PASSWORD is weak or still uses the example value")
 		}
-		if c.OPDSEnabled && weakPassword(c.OPDSPassword) {
-			return c, errors.New("OPDS_PASSWORD must be strong in production")
-		}
-		if c.OPDSEnabled && publicURL.Scheme != "https" {
-			return c, errors.New("PUBLIC_BASE_URL must use HTTPS when OPDS is enabled in production")
-		}
 	}
 	if (c.AdminUsername == "") != (c.AdminPassword == "") {
 		return c, errors.New("ADMIN_USERNAME and ADMIN_PASSWORD must be configured together")
-	}
-	if c.OPDSEnabled && (c.OPDSUsername == "" || c.OPDSPassword == "") {
-		return c, errors.New("OPDS_USERNAME and OPDS_PASSWORD are required when OPDS is enabled")
 	}
 	return c, nil
 }
@@ -97,4 +106,14 @@ func positiveInt(k string, fallback int) (int, error) {
 func weakPassword(v string) bool {
 	l := strings.ToLower(v)
 	return len(v) < 12 || l == "password" || l == "admin" || strings.Contains(l, "change-me") || strings.Contains(l, "replace-with")
+}
+func splitCSV(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }

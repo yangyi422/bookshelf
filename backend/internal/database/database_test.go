@@ -9,7 +9,7 @@ func TestOpenMigratesCoreTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, model := range []any{&User{}, &Session{}, &Book{}, &BookFile{}, &Author{}, &Tag{}, &ImportJob{}, &BackupRecord{}} {
+	for _, model := range []any{&User{}, &Session{}, &SystemSetting{}, &Book{}, &BookFile{}, &Author{}, &Tag{}, &ImportJob{}, &BackupRecord{}} {
 		if !db.Migrator().HasTable(model) {
 			t.Fatalf("missing table for %T", model)
 		}
@@ -22,7 +22,7 @@ func TestOpenMigratesCoreTables(t *testing.T) {
 		t.Fatalf("journal mode = %q", mode)
 	}
 	var versions int64
-	if err := db.Model(&schemaMigration{}).Count(&versions).Error; err != nil || versions != 3 {
+	if err := db.Model(&schemaMigration{}).Count(&versions).Error; err != nil || versions != 4 {
 		t.Fatalf("migration versions = %d: %v", versions, err)
 	}
 	sqlDB, _ := db.DB()

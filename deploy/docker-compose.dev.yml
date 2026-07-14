@@ -1,0 +1,110 @@
+name: bookshelf-dev
+
+x-bookshelf-storage-init: &bookshelf-storage-init
+  build:
+    context: ../backend
+    args:
+      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+  user: root
+  entrypoint: ["/bin/sh", "-c"]
+  command:
+    - >-
+      set -eu;
+      mkdir -p
+      /app/data
+      /app/data/books
+      /app/data/imports
+      /app/data/cache
+      /app/data/trash
+      /app/data/backups
+      /app/data/manifests;
+      chown -R bookshelf:bookshelf /app/data;
+      chmod 0750
+      /app/data
+      /app/data/books
+      /app/data/imports
+      /app/data/cache
+      /app/data/trash
+      /app/data/backups
+      /app/data/manifests
+  restart: "no"
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  volumes:
+    - bookshelf_data:/app/data
+
+services:
+  storage-init:
+    <<: *bookshelf-storage-init
+
+  bookshelf:
+    build:
+      context: ../backend
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+    env_file: ../.env
+    environment:
+      APP_ENV: development
+      DATA_DIR: /app/data
+      PUBLIC_BASE_URL: http://localhost
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12}
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    volumes:
+      - bookshelf_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/system/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      options: {max-size: "10m", max-file: "3"}
+
+  frontend:
+    build: ../frontend
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      options: {max-size: "10m", max-file: "3"}
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      bookshelf: {condition: service_healthy}
+      frontend: {condition: service_healthy}
+    ports: ["80:80"]
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      options: {max-size: "10m", max-file: "3"}
+
+volumes:
+  bookshelf_data:
+  caddy_data:
+  caddy_config:

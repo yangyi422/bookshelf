@@ -1,0 +1,13 @@
+http://localhost {
+  encode zstd gzip
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy same-origin
+  }
+
+  @backend path /api/* /opds* /opensearch.xml
+  reverse_proxy @backend bookshelf:8080
+  reverse_proxy frontend:80
+}
