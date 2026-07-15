@@ -2,6 +2,27 @@
 
 自托管私人书库。第一阶段包含账号认证、书籍/作者/标签管理、EPUB/PDF 等文件上传下载、基础元数据与封面提取、阅读状态、回收站、OPDS 1.2、一致性备份、离线恢复、manifest、扫描，以及 Docker Compose + Caddy 部署。
 
+## 单容器镜像
+
+GHCR 单容器镜像同时包含 Go 服务和已构建的 Vue 前端。启动后直接打开根路径即可进入 Web 初始化页面：
+
+```bash
+docker run -d --name bookshelf \
+  -p 8088:8080 \
+  -v bookshelf_data:/app/data \
+  -e SESSION_SECRET="请替换为至少32字符的随机字符串" \
+  ghcr.io/yangyi422/bookshelf:latest
+```
+
+访问 `http://localhost:8088/`。首次打开根路径会自动跳转到 `/setup` 完成初始化；刷新 `/setup`、`/login`、`/books/:id` 和 `/system` 等前端路由不会返回 404。健康检查地址为 `http://localhost:8088/api/v1/system/health`。
+
+也可使用只包含一个 `bookshelf` 服务的 Compose 配置：
+
+```bash
+SESSION_SECRET="请替换为至少32字符的随机字符串" \
+docker compose -f deploy/docker-compose.simple.yml up -d
+```
+
 ## Docker 本地启动
 
 准备部署环境变量并启动：

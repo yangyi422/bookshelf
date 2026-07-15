@@ -114,5 +114,6 @@ func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *au
 	opdsCatalog.GET("/opds/books/:id/cover", oh.Cover)
 	opdsCatalog.GET("/opds/books/:id/files/:fileId", oh.Download)
 	opdsCatalog.GET("/opensearch.xml", oh.OpenSearch)
+	mountWeb(r, cfg.WebDir)
 	return r
 }

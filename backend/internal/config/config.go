@@ -11,22 +11,27 @@ import (
 )
 
 type Config struct {
-	Environment, Port, DataDir, PublicBaseURL, AdminUsername, AdminPassword string
-	SessionSecret                                                           string
-	OPDSEnabled, OPDSAllowInsecureHTTP                                      bool
-	OPDSUsername, OPDSPassword, OPDSAccessMode                              string
-	SessionTTL                                                              time.Duration
-	MaxUploadBytes                                                          int64
-	SQLiteBusyTimeoutMS                                                     int
-	BackupRetentionDays                                                     int
-	LogLevel                                                                string
-	TrustedProxies                                                          []string
+	Environment, Port, DataDir, WebDir, PublicBaseURL, AdminUsername, AdminPassword string
+	SessionSecret                                                                   string
+	OPDSEnabled, OPDSAllowInsecureHTTP                                              bool
+	OPDSUsername, OPDSPassword, OPDSAccessMode                                      string
+	SessionTTL                                                                      time.Duration
+	MaxUploadBytes                                                                  int64
+	SQLiteBusyTimeoutMS                                                             int
+	BackupRetentionDays                                                             int
+	LogLevel                                                                        string
+	TrustedProxies                                                                  []string
 }
 
 func Load() (Config, error) {
+	environment := env("APP_ENV", "development")
+	defaultWebDir := ""
+	if environment == "production" {
+		defaultWebDir = "/app/web"
+	}
 	c := Config{
-		Environment: env("APP_ENV", "development"), Port: env("APP_PORT", "8080"),
-		DataDir: env("DATA_DIR", "./data"), PublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
+		Environment: environment, Port: env("APP_PORT", "8080"),
+		DataDir: env("DATA_DIR", "./data"), WebDir: env("WEB_DIR", defaultWebDir), PublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
 		AdminUsername: strings.TrimSpace(os.Getenv("ADMIN_USERNAME")), AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		SessionSecret: os.Getenv("SESSION_SECRET"), LogLevel: env("LOG_LEVEL", "info"),
 		OPDSUsername: strings.TrimSpace(os.Getenv("OPDS_USERNAME")), OPDSPassword: os.Getenv("OPDS_PASSWORD"),

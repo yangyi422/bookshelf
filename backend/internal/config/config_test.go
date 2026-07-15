@@ -35,3 +35,18 @@ func TestOPDSAllowInsecureHTTPDefaultsFalse(t *testing.T) {
 		t.Fatalf("expected disabled default, got %t, error %v", cfg.OPDSAllowInsecureHTTP, err)
 	}
 }
+
+func TestWebDirDefaultsForProductionAndCanBeOverridden(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("SESSION_SECRET", "this-is-a-long-enough-session-secret-value")
+	t.Setenv("OPDS_ENABLED", "false")
+	cfg, err := Load()
+	if err != nil || cfg.WebDir != "/app/web" {
+		t.Fatalf("WEB_DIR = %q, error %v", cfg.WebDir, err)
+	}
+	t.Setenv("WEB_DIR", "/srv/bookshelf-web")
+	cfg, err = Load()
+	if err != nil || cfg.WebDir != "/srv/bookshelf-web" {
+		t.Fatalf("overridden WEB_DIR = %q, error %v", cfg.WebDir, err)
+	}
+}
