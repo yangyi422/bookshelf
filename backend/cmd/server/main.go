@@ -29,6 +29,20 @@ func main() {
 		slog.Error("initialize storage", "error", err)
 		os.Exit(1)
 	}
+	var secretSource config.SessionSecretSource
+	cfg.SessionSecret, secretSource, err = config.ResolveSessionSecret(store.Root(), cfg.SessionSecret)
+	if err != nil {
+		slog.Error("initialize session secret", "error", err)
+		os.Exit(1)
+	}
+	switch secretSource {
+	case config.SessionSecretCreated:
+		slog.Info("session secret created")
+	case config.SessionSecretLoaded:
+		slog.Info("session secret loaded")
+	case config.SessionSecretEnvironment:
+		slog.Info("session secret configured from environment")
+	}
 	db, err := database.Open(store.Root(), cfg.SQLiteBusyTimeoutMS)
 	if err != nil {
 		slog.Error("initialize database", "error", err)

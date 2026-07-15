@@ -7,9 +7,11 @@ RUN npm run build
 
 FROM golang:1.24-alpine AS backend-build
 ARG GOPROXY=https://goproxy.cn,direct
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
 ENV GOPROXY=${GOPROXY}
 WORKDIR /src
-RUN apk add --no-cache build-base
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
+    && apk add --no-cache build-base
 WORKDIR /src/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -19,7 +21,9 @@ RUN CGO_ENABLED=1 go build -trimpath -o /out/bookshelf ./cmd/server
 FROM alpine:3.22 AS runtime
 ARG BOOKSHELF_UID=10001
 ARG BOOKSHELF_GID=10001
-RUN apk add --no-cache ca-certificates tzdata \
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
+    && apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g "${BOOKSHELF_GID}" bookshelf \
     && adduser -S -D -H -u "${BOOKSHELF_UID}" -G bookshelf bookshelf
 WORKDIR /app

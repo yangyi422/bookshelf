@@ -17,6 +17,19 @@ func TestProductionValidation(t *testing.T) {
 	}
 }
 
+func TestProductionAllowsMissingSessionSecret(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("SESSION_SECRET", "")
+	t.Setenv("OPDS_ENABLED", "false")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SessionSecret != "" {
+		t.Fatal("expected empty secret to be resolved after storage initialization")
+	}
+}
+
 func TestLegacyOPDSEnvironmentMapsAccessMode(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("SESSION_SECRET", "this-is-a-long-enough-session-secret-value")

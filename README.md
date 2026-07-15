@@ -10,7 +10,6 @@ GHCR 单容器镜像同时包含 Go 服务和已构建的 Vue 前端。启动后
 docker run -d --name bookshelf \
   -p 8088:8080 \
   -v bookshelf_data:/app/data \
-  -e SESSION_SECRET="请替换为至少32字符的随机字符串" \
   ghcr.io/yangyi422/bookshelf:latest
 ```
 
@@ -19,9 +18,10 @@ docker run -d --name bookshelf \
 也可使用只包含一个 `bookshelf` 服务的 Compose 配置：
 
 ```bash
-SESSION_SECRET="请替换为至少32字符的随机字符串" \
 docker compose -f deploy/docker-compose.simple.yml up -d
 ```
+
+默认不需要设置 `SESSION_SECRET` 或创建 `.env`。首次启动会使用安全随机数生成密钥并保存到数据卷的 `/app/data/config/session_secret`，容器重建后继续复用。`SESSION_SECRET` 仅作为高级覆盖项；显式配置时必须至少包含 32 个字符。
 
 ## Docker 本地启动
 
@@ -105,4 +105,4 @@ make docker-verify
 docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build
 ```
 
-生产环境要求至少 32 字符的 `SESSION_SECRET` 和有效 HTTPS 域名；管理员及 OPDS 凭据通过初始化向导设置。备份恢复说明见 [docs/backup-and-restore.md](docs/backup-and-restore.md)，OPDS 说明见 [docs/opds.md](docs/opds.md)。
+生产环境的 Session Secret 默认在数据卷中自动生成并持久化；管理员及 OPDS 凭据通过初始化向导设置。备份恢复说明见 [docs/backup-and-restore.md](docs/backup-and-restore.md)，OPDS 说明见 [docs/opds.md](docs/opds.md)。

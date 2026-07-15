@@ -80,10 +80,10 @@ func Load() (Config, error) {
 			return c, errors.New("PUBLIC_BASE_URL must be an absolute HTTP(S) URL")
 		}
 	}
+	if c.SessionSecret != "" && len(c.SessionSecret) < 32 {
+		return c, errors.New("SESSION_SECRET must contain at least 32 characters when explicitly configured")
+	}
 	if c.Environment == "production" {
-		if len(c.SessionSecret) < 32 {
-			return c, errors.New("SESSION_SECRET must contain at least 32 characters in production")
-		}
 		if c.AdminUsername != "" && weakPassword(c.AdminPassword) {
 			return c, errors.New("ADMIN_PASSWORD is weak or still uses the example value")
 		}
