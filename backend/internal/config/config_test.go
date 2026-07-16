@@ -30,6 +30,22 @@ func TestProductionAllowsMissingSessionSecret(t *testing.T) {
 	}
 }
 
+func TestSessionCookieSecureConfiguration(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("OPDS_ENABLED", "false")
+	for _, mode := range []string{"auto", "always", "never"} {
+		t.Setenv("SESSION_COOKIE_SECURE", mode)
+		cfg, err := Load()
+		if err != nil || cfg.SessionCookieSecure != mode {
+			t.Fatalf("mode %q: config=%q error=%v", mode, cfg.SessionCookieSecure, err)
+		}
+	}
+	t.Setenv("SESSION_COOKIE_SECURE", "sometimes")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid cookie security mode to fail")
+	}
+}
+
 func TestLegacyOPDSEnvironmentMapsAccessMode(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("SESSION_SECRET", "this-is-a-long-enough-session-secret-value")

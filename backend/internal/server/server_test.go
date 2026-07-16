@@ -24,7 +24,7 @@ func TestLoginAndMe(t *testing.T) {
 	if err := svc.BootstrapAdmin("admin", "correct horse battery staple"); err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.Config{Environment: "development", SessionTTL: time.Hour}
+	cfg := config.Config{Environment: "production", SessionCookieSecure: "auto", SessionTTL: time.Hour}
 	store, err := storage.New(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestLoginAndMe(t *testing.T) {
 		t.Fatalf("login status %d: %s", w.Code, w.Body.String())
 	}
 	cookies := w.Result().Cookies()
-	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
+	if len(cookies) != 1 || cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatal("session cookie flags missing")
 	}
 	me := httptest.NewRecorder()

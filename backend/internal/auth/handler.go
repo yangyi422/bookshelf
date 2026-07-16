@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bookshelf/internal/database"
+	"bookshelf/internal/proxy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,13 +13,14 @@ const CookieName = "bookshelf_session"
 const userKey = "current_user"
 
 type Handler struct {
-	service *Service
-	secure  bool
-	ttl     time.Duration
+	service          *Service
+	cookieSecureMode string
+	proxy            *proxy.Resolver
+	ttl              time.Duration
 }
 
-func NewHandler(service *Service, secure bool, ttl time.Duration) *Handler {
-	return &Handler{service: service, secure: secure, ttl: ttl}
+func NewHandler(service *Service, cookieSecureMode string, resolver *proxy.Resolver, ttl time.Duration) *Handler {
+	return &Handler{service: service, cookieSecureMode: cookieSecureMode, proxy: resolver, ttl: ttl}
 }
 
 type credentials struct {
@@ -84,7 +86,17 @@ func (h *Handler) RequireUser() gin.HandlerFunc {
 }
 func (h *Handler) setCookie(c *gin.Context, value string, maxAge int) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(CookieName, value, maxAge, "/", "", h.secure, true)
+	c.SetCookie(CookieName, value, maxAge, "/", "", h.cookieSecure(c.Request), true)
+}
+func (h *Handler) cookieSecure(req *http.Request) bool {
+	switch h.cookieSecureMode {
+	case "always":
+		return true
+	case "never":
+		return false
+	default:
+		return h.proxy != nil && h.proxy.HTTPS(req)
+	}
 }
 func CurrentUser(c *gin.Context) database.User {
 	v, _ := c.Get(userKey)

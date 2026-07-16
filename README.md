@@ -23,6 +23,8 @@ docker compose -f deploy/docker-compose.simple.yml up -d
 
 默认不需要设置 `SESSION_SECRET` 或创建 `.env`。首次启动会使用安全随机数生成密钥并保存到数据卷的 `/app/data/config/session_secret`，容器重建后继续复用。`SESSION_SECRET` 仅作为高级覆盖项；显式配置时必须至少包含 32 个字符。
 
+Session Cookie 的 `Secure` 属性默认使用 `SESSION_COOKIE_SECURE=auto`，无需额外配置：直接通过服务器 IP 的 HTTP 访问时允许浏览器携带登录 Cookie；请求本身为 HTTPS，或可信反向代理声明外部协议为 HTTPS 时，会自动设置 `Secure`。高级覆盖项还支持 `always` 和 `never`。公网正式部署仍推荐使用 HTTPS。
+
 ## Docker 本地启动
 
 准备部署环境变量并启动：

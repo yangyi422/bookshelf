@@ -50,7 +50,7 @@ func New(cfg config.Config, db *gorm.DB, store *storage.Storage, authService *au
 	systemHandler := appsystem.New(db, store, backupService, scanService, settingsService, resolver)
 	r.GET("/api/v1/setup/status", systemHandler.SetupStatus)
 	r.POST("/api/v1/setup", systemHandler.Initialize)
-	h := auth.NewHandler(authService, cfg.Environment == "production", cfg.SessionTTL)
+	h := auth.NewHandler(authService, cfg.SessionCookieSecure, resolver, cfg.SessionTTL)
 	a := r.Group("/api/v1/auth")
 	a.POST("/login", appmw.LoginRateLimit(10, time.Minute), h.Login)
 	protected := a.Group("")

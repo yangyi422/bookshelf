@@ -12,7 +12,7 @@ import (
 
 type Config struct {
 	Environment, Port, DataDir, WebDir, PublicBaseURL, AdminUsername, AdminPassword string
-	SessionSecret                                                                   string
+	SessionSecret, SessionCookieSecure                                              string
 	OPDSEnabled, OPDSAllowInsecureHTTP                                              bool
 	OPDSUsername, OPDSPassword, OPDSAccessMode                                      string
 	SessionTTL                                                                      time.Duration
@@ -33,7 +33,7 @@ func Load() (Config, error) {
 		Environment: environment, Port: env("APP_PORT", "8080"),
 		DataDir: env("DATA_DIR", "./data"), WebDir: env("WEB_DIR", defaultWebDir), PublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
 		AdminUsername: strings.TrimSpace(os.Getenv("ADMIN_USERNAME")), AdminPassword: os.Getenv("ADMIN_PASSWORD"),
-		SessionSecret: os.Getenv("SESSION_SECRET"), LogLevel: env("LOG_LEVEL", "info"),
+		SessionSecret: os.Getenv("SESSION_SECRET"), SessionCookieSecure: strings.ToLower(strings.TrimSpace(env("SESSION_COOKIE_SECURE", "auto"))), LogLevel: env("LOG_LEVEL", "info"),
 		OPDSUsername: strings.TrimSpace(os.Getenv("OPDS_USERNAME")), OPDSPassword: os.Getenv("OPDS_PASSWORD"),
 		TrustedProxies: splitCSV(env("TRUSTED_PROXIES", "127.0.0.1,::1")),
 	}
@@ -82,6 +82,9 @@ func Load() (Config, error) {
 	}
 	if c.SessionSecret != "" && len(c.SessionSecret) < 32 {
 		return c, errors.New("SESSION_SECRET must contain at least 32 characters when explicitly configured")
+	}
+	if c.SessionCookieSecure != "auto" && c.SessionCookieSecure != "always" && c.SessionCookieSecure != "never" {
+		return c, errors.New("SESSION_COOKIE_SECURE must be auto, always, or never")
 	}
 	if c.Environment == "production" {
 		if c.AdminUsername != "" && weakPassword(c.AdminPassword) {
